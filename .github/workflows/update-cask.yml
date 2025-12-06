@@ -1,0 +1,92 @@
+name: Update Cask
+
+on:
+  repository_dispatch:
+    types: [update-cask]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (without v prefix)'
+        required: true
+      sha256:
+        description: 'SHA256 of DMG file'
+        required: true
+
+jobs:
+  update-cask:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Get version and SHA256
+        id: release
+        run: |
+          if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            VERSION="${{ github.event.client_payload.version }}"
+            SHA256="${{ github.event.client_payload.sha256 }}"
+          else
+            VERSION="${{ inputs.version }}"
+            SHA256="${{ inputs.sha256 }}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "sha256=$SHA256" >> $GITHUB_OUTPUT
+          echo "✓ Version: $VERSION"
+          echo "✓ SHA256: $SHA256"
+
+      - name: Update Cask formula
+        run: |
+          cat > Casks/whisper-hotkey.rb << 'EOF'
+          cask "whisper-hotkey" do
+            version "${{ steps.release.outputs.version }}"
+            sha256 "${{ steps.release.outputs.sha256 }}"
+
+            url "https://github.com/Automaat/whisper-hotkey/releases/download/v#{version}/WhisperHotkey-#{version}.dmg"
+            name "WhisperHotkey"
+            desc "macOS voice-to-text via hotkey using local Whisper"
+            homepage "https://github.com/Automaat/whisper-hotkey"
+
+            livecheck do
+              url :url
+              strategy :github_latest
+            end
+
+            app "WhisperHotkey.app"
+
+            zap trash: [
+              "~/.whisper-hotkey",
+              "~/Library/LaunchAgents/com.whisper-hotkey.plist",
+            ]
+
+            caveats <<~EOS
+              WhisperHotkey requires permissions to function:
+
+              1. Accessibility: System Settings → Privacy & Security → Accessibility
+              2. Input Monitoring: System Settings → Privacy & Security → Input Monitoring
+              3. Microphone: System Settings → Privacy & Security → Microphone
+
+              Add "WhisperHotkey" to each and enable the checkboxes.
+
+              Default hotkey: Ctrl+Option+Z
+              Config: ~/.whisper-hotkey/config.toml
+
+              For more info: https://github.com/Automaat/whisper-hotkey#readme
+            EOS
+          end
+          EOF
+
+      - name: Commit and push
+        run: |
+          git config user.name "GitHub Actions"
+          git config user.email "actions@github.com"
+          git add Casks/whisper-hotkey.rb
+
+          if git diff --staged --quiet; then
+            echo "✓ No changes needed - formula already up to date"
+          else
+            git commit -m "bump: whisper-hotkey ${{ steps.release.outputs.version }}" \
+                       -m "SHA256: ${{ steps.release.outputs.sha256 }}" \
+                       -m "Triggered by: Automaat/whisper-hotkey"
+            git push
+            echo "✅ Homebrew tap updated to version ${{ steps.release.outputs.version }}"
+          fi
