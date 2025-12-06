@@ -1,6 +1,6 @@
 cask "whisper-hotkey" do
-  version "0.10.0"
-  sha256 "50117fe7d8af6b98e8412823fd1fb938ddad4c1e41101e08f9b34b18cf9fef94"
+  version "0.11.0"
+  sha256 "2b73a3e35734d8f31b85813ff3d87181f17f25295b2b3aa1859a6ed97c24382e"
 
   url "https://github.com/Automaat/whisper-hotkey/releases/download/v#{version}/WhisperHotkey-#{version}.dmg"
   name "WhisperHotkey"
